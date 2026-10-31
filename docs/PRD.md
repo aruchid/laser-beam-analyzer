@@ -123,7 +123,7 @@ flowchart TB
  MAIN --> SESSION[原图 / 校正 / 结果 / 日志归档]
 ```
 
-详细传输协议和 Windows 演进设计见 [ARCHITECTURE.md](ARCHITECTURE.md)。当前 Windows native 映射与构建路径已经编写，本次只在 macOS 编译运行，不能视为 Windows 工控机验收完成。
+详细传输协议和 Windows 演进设计见 [ARCHITECTURE.md](ARCHITECTURE.md)。Windows native 映射和 CMake x64 路径已通过 Windows CI 编译及通道测试；本地页面验收在 macOS 完成，目标 Windows 工控机和 Electron 桌面仍须实机验收。
 
 ## 8. 实施与验收矩阵
 
@@ -136,7 +136,7 @@ flowchart TB
 | 饱和/边缘/信噪质量门禁       | 已实现工程规则                   | 真实传感器门限与失效检测研究             |
 | 统计和手动双轴扫描记录       | 已实现                           | 实时统计、自动扫描、采样覆盖、异常点处理 |
 | 原图 + 元数据 ZIP 会话包     | 已实现                           | 会话恢复、正式报告、断电恢复与归档策略   |
-| Windows 文件映射 / CMake x64 | 已编写，未在 Windows 执行        | 实机或 Windows CI 编译、通道与退出回归   |
+| Windows 文件映射 / CMake x64 | Windows CI 编译与通道回归通过    | 目标工控机、中文用户目录、DPI 与桌面回归 |
 | 相机 / 位移台                | 未实现，接口方案待设备选型       | 真实硬件、SDK、曝光/触发、断连与限位     |
 | 高吞吐共享内存消费           | 设计阶段                         | Native 映射消费者、环形缓冲、测量基准    |
 

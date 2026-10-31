@@ -1,6 +1,6 @@
 # BeamLab 0.2 验证记录
 
-日期：2026-10-31（America/Phoenix）。环境：当前 macOS 开发机、Node.js 24.11.0、系统 C++17 编译器。Windows 是产品部署目标；本轮没有 Windows 实机结果。
+日期：2026-10-31（America/Phoenix）。环境：当前 macOS 开发机、Node.js 24.11.0、系统 C++17 编译器。Windows 是产品部署目标；已完成 Windows CI 编译与通道测试，但没有目标工控机或设备实测结果。
 
 ## 自动验证
 
@@ -20,7 +20,7 @@ git diff --check
 - Node 端到端测试 1：两个并发请求的图像头和结果帧号一致；非法参数与外部 Origin 拒绝；异常请求后工作进程可继续使用。
 - Node 端到端测试 2：16-bit 大端 PGM 解码；非固定分辨率输入；错误暗场产生无效结果；饱和帧禁止记录；新文件使暗场失效；截断文件/越界 ROI 拒绝；ZIP 包含 manifest 和未归一化的原始像素字节。
 
-测试样本为合成数据；不推导真实设备精度、吞吐量或 ISO 符合性。CI 工作流覆盖 Windows/macOS/Linux 的计划已加入，提交后的远端运行结果需另行记录，不能用工作流文件存在代替通过。
+测试样本为合成数据；不推导真实设备精度、吞吐量或 ISO 符合性。代码提交 `1d8b34836ca4996933b812ad1b2ff73d922b0eed` 已通过 [GitHub Actions 三平台回归](https://github.com/aruchid/laser-beam-analyzer/actions/runs/41212497565)：`windows-latest`、`macos-latest`、`ubuntu-latest` 全部 success。Windows CI 执行 CMake x64 编译、C++ 数值测试和 Node 通道/归档/生命周期测试；没有运行真实相机、位移台或 Electron 桌面 UI。
 
 - Node 生命周期测试：端口占用导致启动失败时，候选工作进程和临时资源被回收，原服务仍可访问。
 
@@ -43,7 +43,7 @@ git diff --check
 
 ## 尚未验收
 
-- Windows 原生编译、文件映射一致性、中文路径、进程回收、DPI、Electron 实际窗口及打包安装。
+- 目标 Windows 工控机的中文路径、设备驱动、断电/异常回收、DPI、Electron 实际窗口及打包安装；CI 的文件映射回归不代替这些验收。
 - 真正相机 SDK、位深/packed 格式、行步长、曝光/增益/触发、断线重连。
 - 真实暗场与温漂、背景污染、坏点、散斑/旁瓣、弱信号及视场截断判定。
 - TIFF16/厂商原始格式、批量文件测量、可恢复工程文件。
