@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BeamLab · 光束分析仪</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="titlebar">
+      <b
+        ><span class="logo">▦</span> BeamLab
+        <span class="dim">光束分析仪</span></b
+      ><span>工程：<strong id="project-name">未命名测量</strong></span
+      ><span class="platform">WINDOWS INSTRUMENT WORKSTATION · 0.2</span>
+    </header>
+    <nav class="menubar">
+      <a href="#workspace">光束测量</a><a href="#statistics">统计 / 稳定性</a
+      ><a href="#scan">M² 扫描记录</a><a href="#log">事件记录</a
+      ><span>RAW INTENSITY / SECOND MOMENTS</span>
+    </nav>
+    <section class="ribbon">
+      <div class="tool-group">
+        <span class="group-title">数据源</span
+        ><label class="button blue"
+          >打开原始图像<input
+            id="file"
+            type="file"
+            accept=".pgm"
+            hidden /></label
+        ><button disabled title="尚未配置相机 SDK">连接相机</button
+        ><button disabled title="未连接相机">采集</button
+        ><span class="device" id="source-state">● 设备未连接</span>
+      </div>
+      <div class="tool-group">
+        <span class="group-title">校正</span
+        ><label class="button"
+          >载入暗场<input id="dark" type="file" accept=".pgm" hidden /></label
+        ><select id="correction" aria-label="背景校正方式">
+          <option value="1">边界均值扣除</option>
+          <option value="2">逐像素暗场扣除</option>
+          <option value="0">不校正</option></select
+        ><button id="apply">重新测量</button>
+      </div>
+      <div class="tool-group">
+        <span class="group-title">记录</span
+        ><button id="record" disabled>记录有效帧</button
+        ><button id="export" disabled>导出测量包</button
+        ><button id="report" disabled>打印报告 / PDF</button>
+      </div>
+    </section>
+    <div class="status-strip">
+      <span id="mode">离线文件测量</span
+      ><span id="source-info">尚未载入图像</span
+      ><span id="validity" class="status neutral">NO DATA</span
+      ><span id="compute">C++ 引擎待命</span>
+    </div>
+    <p id="error" role="alert" hidden></p>
+    <main id="workspace" class="workspace">
+      <aside class="settings panel">
+        <h2>设备与测量设置</h2>
+        <section>
+          <h3>采集信息</h3>
+          <dl>
+            <dt>设备</dt>
+            <dd>未配置相机</dd>
+            <dt>曝光 / 增益</dt>
+            <dd>— / —</dd>
+            <dt>数据格式</dt>
+            <dd id="format">P5 PGM · 8 / 16-bit</dd>
+            <dt>传感器尺寸</dt>
+            <dd id="dimensions">—</dd>
+          </dl>
+          <p class="hint">
+            当前读取原始灰度文件；相机控制须接入实际
+            SDK，不对离线图像提供虚假的曝光操作。
+          </p>
+        </section>
+        <section>
+          <h3>空间标定</h3>
+          <label
+            >像元尺寸
+            <div class="unit-input">
+              <input
+                id="pitch"
+                type="number"
+                min="0.01"
+                max="100"
+                step=".01"
+                value="5.5"
+              /><span>μm / px</span>
+            </div></label
+          ><label
+            >光学倍率
+            <div class="unit-input">
+              <input
+                id="magnification"
+                type="number"
+                min="0.01"
+                max="100"
+                step=".01"
+                value="1"
+              /><span>×</span>
+            </div></label
+          ><label class="check"
+            ><input
+              id="calibrated"
+              type="checkbox"
+            />已核对像元尺寸与成像倍率</label
+          >
+          <p class="hint" id="cal-status">
+            未确认标定，物理尺寸与 M² 记录不可用；仍可查看像素域参数。
+          </p>
+        </section>
+        <section>
+          <h3>计算区域 / ROI</h3>
+          <div class="roi-grid">
+            <label>X<input id="roi-x" type="number" min="0" value="0" /></label
+            ><label>Y<input id="roi-y" type="number" min="0" value="0" /></label
+            ><label>W<input id="roi-w" type="number" min="0" value="0" /></label
+            ><label
+              >H<input id="roi-h" type="number" min="0" value="0"
+            /></label>
+          </div>
+          <button id="full-roi">使用全传感器</button>
+          <p class="hint">
+            坐标以完整传感器左上角为原点；W/H 均为 0 时使用全幅。
+          </p>
+        </section>
+        <section>
+          <h3>显示</h3>
+          <label
+            >强度映射<select id="scale">
+              <option value="linear">线性</option>
+              <option value="log">对数</option>
+            </select></label
+          ><label
+            >调色板<select id="palette">
+              <option value="jet">伪彩色</option>
+              <option value="gray">灰度</option>
+            </select></label
+          ><label class="check"
+            ><input id="ellipse" type="checkbox" checked />D4σ 椭圆 / 质心 /
+            ROI</label
+          >
+        </section>
+      </aside>
+      <section class="visuals">
+        <div class="panel map-panel">
+          <div class="panel-title">
+            <h2>二维光束分布</h2>
+            <span id="image-caption">未载入数据</span>
+            <div class="legend"><i></i><span>0 → 峰值</span></div>
+          </div>
+          <div class="sensor-view">
+            <canvas
+              id="beam"
+              width="960"
+              height="640"
+              aria-label="完整传感器光斑与 ROI"
+            ></canvas>
+            <div id="empty" class="empty">
+              <span>＋</span><strong>载入原始光束图像</strong>
+              <p>
+                8 / 16-bit 二进制 PGM，保留灰度动态范围<br />不自动生成光斑，不将演示数据当作实测
+              </p>
+              <label class="button blue"
+                >选择图像文件<input
+                  id="file-empty"
+                  type="file"
+                  accept=".pgm"
+                  hidden
+              /></label>
+            </div>
+          </div>
+          <div class="map-footer">
+            <span id="cursor">图像坐标：X → / Y ↓</span
+            ><span id="intensity">显示归一化不参与测量计算</span>
+          </div>
+        </div>
+        <div class="profile-grid">
+          <div class="panel">
+            <div class="panel-title">
+              <h2>X 积分剖面</h2>
+              <span>有符号校正数据</span>
+            </div>
+            <canvas
+              id="profile-x"
+              width="600"
+              height="155"
+              aria-label="X 方向积分剖面"
+            ></canvas>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <h2>Y 积分剖面</h2>
+              <span>有符号校正数据</span>
+            </div>
+            <canvas
+              id="profile-y"
+              width="600"
+              height="155"
+              aria-label="Y 方向积分剖面"
+            ></canvas>
+          </div>
+        </div>
+      </section>
+      <aside class="results">
+        <div class="panel">
+          <h2>测量结果 <span class="small">D4σ / 二阶矩</span></h2>
+          <table class="result-table">
+            <thead>
+              <tr>
+                <th>参数</th>
+                <th>当前值</th>
+                <th>单位</th>
+              </tr>
+            </thead>
+            <tbody id="results"></tbody>
+          </table>
+        </div>
+        <div class="panel quality">
+          <h2>测量有效性</h2>
+          <ul id="quality">
+            <li class="muted">等待图像</li>
+          </ul>
+          <p class="hint">
+            工程门限用于筛除明显异常，不构成 ISO
+            符合性判定。未通过的帧禁止纳入统计和扫描。
+          </p>
+        </div>
+        <div class="panel provenance">
+          <h2>数据与校正追溯</h2>
+          <dl>
+            <dt>源文件</dt>
+            <dd id="filename">—</dd>
+            <dt>暗场</dt>
+            <dd id="dark-name">未载入</dd>
+            <dt>当前帧</dt>
+            <dd id="sequence">—</dd>
+            <dt>接收时间</dt>
+            <dd id="received">—</dd>
+          </dl>
+          <p class="hint" id="hash">SHA-256：—</p>
+        </div>
+      </aside>
+    </main>
+    <section class="lower-grid">
+      <section class="panel" id="statistics">
+        <div class="panel-title">
+          <h2>统计 / 稳定性记录</h2>
+          <button id="clear-stats">清除记录</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>参数 / px</th>
+              <th>均值</th>
+              <th>标准差</th>
+              <th>最小值</th>
+              <th>最大值</th>
+            </tr>
+          </thead>
+          <tbody id="stats"></tbody>
+        </table>
+        <div class="panel-foot" id="stats-count">
+          0 个有效帧 · 同一帧只记录一次
+        </div>
+        <canvas
+          id="stability"
+          width="800"
+          height="140"
+          aria-label="记录帧的质心位置趋势"
+        ></canvas>
+      </section>
+      <section class="panel" id="scan">
+        <div class="panel-title">
+          <h2>M² · 手动轴向扫描</h2>
+          <span>固定传感器 X / Y 轴</span>
+        </div>
+        <div class="scan-controls">
+          <label>z / mm<input id="z" type="number" value="0" step="1" /></label
+          ><label
+            >波长 / nm<input
+              id="wavelength"
+              type="number"
+              value="1064"
+              min="100"
+              max="20000" /></label
+          ><button id="append-z" disabled>追加当前帧</button
+          ><button id="fit" disabled>拟合 X / Y</button
+          ><button id="clear-scan">清除</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>z / mm</th>
+              <th>wₓ / μm</th>
+              <th>wᵧ / μm</th>
+              <th>帧号</th>
+            </tr>
+          </thead>
+          <tbody id="scan-rows">
+            <tr>
+              <td colspan="4" class="muted">尚无采样点</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="panel-foot" id="fit-result">
+          需确认标定，并在不同 z 位置载入图像。半径 w = D4σ / 2。
+        </p>
+        <p class="hint scan-note">
+          当前无位移台驱动；至少 5 点是数值拟合门槛，不是 ISO 11146
+          测量条件。广义像散、转轴与测量不确定度另行处理。
+        </p>
+      </section>
+    </section>
+    <section class="panel event-panel" id="log">
+      <div class="panel-title">
+        <h2>事件记录</h2>
+        <span>设置变更与计算结果</span>
+      </div>
+      <ol id="events"></ol>
+    </section>
+    <footer>
+      <span>本地文件 → C++ 计算 → 共享帧快照 → HTML 工作站</span
+      ><span id="footer-state">相机与位移台：未连接 · 校准状态：未确认</span>
+    </footer>
+  </body>
+</html>
