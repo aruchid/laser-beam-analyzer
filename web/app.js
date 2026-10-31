@@ -25,6 +25,7 @@ function route() {
   document.getElementById("page-context").textContent = pageNames[currentPage];
   document.title = pageNames[currentPage] + " · BeamLab";
   if (currentPage === "surface") updateSurface();
+  if (currentPage === "measurement") draw();
 }
 async function updateSurface() {
   if (currentPage !== "surface" || !frame || !pixels) return;
@@ -391,7 +392,7 @@ async function receive(response, configuration, requestEpoch) {
   $("compute").textContent = `C++ ${frame.compute_ms.toFixed(2)} ms`;
   $("footer-state").textContent =
     `相机 / 位移台未连接 · 文件测量 · 标定${frame.calibration.confirmed ? "用户确认" : "未确认"}`;
-  draw();
+  if (currentPage === "measurement") draw();
   updateSurface();
   renderResults();
   quality();
