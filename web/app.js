@@ -1,3 +1,60 @@
+let currentPage = "measurement",
+  surface = null,
+  surfaceLoading = null,
+  surfaceRevision = 0;
+const pageNames = {
+  measurement: "二维测量",
+  surface: "三维强度",
+  statistics: "统计 / 稳定性",
+  scan: "M² 扫描",
+  events: "事件记录",
+};
+function route() {
+  const name = location.pathname.slice(1) || "measurement";
+  currentPage = Object.hasOwn(pageNames, name) ? name : "measurement";
+  document.body.dataset.page = currentPage;
+  document.querySelectorAll("a[data-page]").forEach((a) => {
+    if (a.dataset.page === currentPage) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  document.getElementById("workspace").hidden = currentPage !== "measurement";
+  document.getElementById("surface-page").hidden = currentPage !== "surface";
+  document.getElementById("statistics").hidden = currentPage !== "statistics";
+  document.getElementById("scan").hidden = currentPage !== "scan";
+  document.getElementById("log").hidden = currentPage !== "events";
+  document.getElementById("page-context").textContent = pageNames[currentPage];
+  document.title = pageNames[currentPage] + " · BeamLab";
+  if (currentPage === "surface") updateSurface();
+}
+async function updateSurface() {
+  if (currentPage !== "surface" || !frame || !pixels) return;
+  const revision = ++surfaceRevision;
+  try {
+    if (!surfaceLoading)
+      surfaceLoading = import("/surface.js").then(
+        ({ BeamSurface }) =>
+          new BeamSurface(document.getElementById("surface-host"), (message) =>
+            error(message),
+          ),
+      );
+    surface = await surfaceLoading;
+    if (revision !== surfaceRevision || currentPage !== "surface") return;
+    document.getElementById("surface-empty").hidden = true;
+    const info = surface.update(frame, pixels, {
+      resolution: Number(document.getElementById("surface-resolution").value),
+      gain: Number(document.getElementById("surface-gain").value),
+      log: document.getElementById("surface-log").checked,
+      wireframe: document.getElementById("surface-wire").checked,
+    });
+    document.getElementById("surface-budget").textContent =
+      `${info.vertices.toLocaleString()} 顶点 / ${info.triangles.toLocaleString()} 三角面 · 按需渲染`;
+    document.getElementById("surface-frame").textContent =
+      `帧 #${frame.sequence} · 原始 ${frame.width}×${frame.height} · ${stale ? "设置已变更，当前为旧帧" : frame.accepted ? "像素门限通过" : "未通过有效性检查"}`;
+  } catch (e) {
+    surfaceLoading = null;
+    error("三维视图不可用：" + e.message + "。二维测量仍可使用。");
+  }
+}
 const $ = (id) => document.getElementById(id);
 let frame = null,
   pixels = null,
@@ -335,6 +392,7 @@ async function receive(response, configuration, requestEpoch) {
   $("footer-state").textContent =
     `相机 / 位移台未连接 · 文件测量 · 标定${frame.calibration.confirmed ? "用户确认" : "未确认"}`;
   draw();
+  updateSurface();
   renderResults();
   quality();
   log(
@@ -696,3 +754,37 @@ fetch("/api/health")
     $("compute").textContent = "C++ 引擎在线 · 等待数据";
   })
   .catch((e) => error(e.message));
+
+document.querySelectorAll("a[data-page]").forEach((link) =>
+  link.addEventListener("click", (event) => {
+    if (
+      event.button ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    history.pushState(null, "", link.pathname);
+    route();
+  }),
+);
+window.addEventListener("popstate", route);
+for (const id of [
+  "surface-resolution",
+  "surface-gain",
+  "surface-log",
+  "surface-wire",
+])
+  document.getElementById(id).addEventListener("change", updateSurface);
+document
+  .getElementById("surface-reset")
+  .addEventListener("click", () => surface?.reset());
+window.addEventListener("pagehide", (event) => {
+  if (!event.persisted) surface?.dispose();
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && currentPage === "surface") surface?.resize();
+});
+route();

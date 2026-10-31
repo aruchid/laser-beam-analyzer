@@ -16,6 +16,16 @@ flowchart LR
  BRIDGE --> ARCHIVE[原图与暗场 / 配置 / 统计 / 扫描归档]
 ```
 
+## 分页与 Three.js 三维视图
+
+工作站按 `/measurement`、`/surface`、`/statistics`、`/scan`、`/events` 分为独立页面，当前帧、统计及扫描记录在页内导航和浏览器前进/后退时保留；刷新页面暂不恢复会话。
+
+三维页显示同一 C++ 校正帧的全传感器强度曲面，支持旋转、缩放、平移、线性/对数、线框和高度倍率。它表示强度，不表示相位或传播波面。
+
+Three.js 本地依赖、按需加载；默认 128×128 网格、最高 256×256；显示降采样不改变 C++ 原始分辨率测量。复用几何缓冲、限制设备像素比，页面隐藏或无操作时不运行连续渲染循环。采集、计算、内存传输仍需各自做性能验证。
+
+![Three.js 强度曲面实图，合成 QA 文件](docs/images/three-surface-qa.jpg)
+
 ## 本轮已实现
 
 - 读取 8/16-bit 二进制 PGM，保留灰度动态范围；默认空设备、空图像，不自动生成演示光斑。
@@ -39,6 +49,7 @@ flowchart LR
 Node.js 22+，C++17 编译环境。macOS/Linux 可使用 `c++`；Windows 需要 CMake 3.16+ 和 Visual Studio 2022 C++ x64 工具链。
 
 ```sh
+npm ci --omit=dev
 npm run build
 npm test
 npm start

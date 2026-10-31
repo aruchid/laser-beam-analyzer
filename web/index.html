@@ -15,10 +15,13 @@
       ><span>工程：<strong id="project-name">未命名测量</strong></span
       ><span class="platform">WINDOWS INSTRUMENT WORKSTATION · 0.2</span>
     </header>
-    <nav class="menubar">
-      <a href="#workspace">光束测量</a><a href="#statistics">统计 / 稳定性</a
-      ><a href="#scan">M² 扫描记录</a><a href="#log">事件记录</a
-      ><span>RAW INTENSITY / SECOND MOMENTS</span>
+    <nav class="menubar" aria-label="工作站页面">
+      <a data-page="measurement" href="/measurement">二维测量</a>
+      <a data-page="surface" href="/surface">三维强度</a>
+      <a data-page="statistics" href="/statistics">统计 / 稳定性</a>
+      <a data-page="scan" href="/scan">M² 扫描</a>
+      <a data-page="events" href="/events">事件记录</a>
+      <span id="page-context">二维测量</span>
     </nav>
     <section class="ribbon">
       <div class="tool-group">
@@ -246,6 +249,46 @@
         </div>
       </aside>
     </main>
+    <section id="surface-page" class="panel surface-page" hidden>
+      <div class="panel-title">
+        <h2>三维光束强度曲面</h2>
+        <span id="surface-frame">等待当前测量帧</span>
+      </div>
+      <div class="surface-toolbar">
+        <label
+          >显示网格
+          <select id="surface-resolution">
+            <option value="64">64 × 64</option>
+            <option value="128" selected>128 × 128</option>
+            <option value="192">192 × 192</option>
+            <option value="256">256 × 256</option>
+          </select></label
+        >
+        <label
+          >高度倍率
+          <select id="surface-gain">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+          </select></label
+        >
+        <label><input type="checkbox" id="surface-log" />对数显示</label>
+        <label><input type="checkbox" id="surface-wire" />网格线</label>
+        <button id="surface-reset">重置视角</button
+        ><span id="surface-budget">Three.js / WebGL · 按需渲染</span>
+      </div>
+      <div id="surface-host">
+        <p id="surface-empty">
+          请先在二维测量页载入原始图像。各页面共享同一帧与会话。
+        </p>
+      </div>
+      <p class="panel-foot">
+        鼠标拖动旋转 · 滚轮缩放 · 右键平移。显示全传感器范围，测量数值仍由所选
+        ROI 决定。X/Z 为传感器横纵坐标，Y
+        为归一化强度；这是强度曲面，不是相位或光束传播模型。显示降采样不会改变
+        C++ 的全分辨率测量。
+      </p>
+    </section>
     <section class="lower-grid">
       <section class="panel" id="statistics">
         <div class="panel-title">

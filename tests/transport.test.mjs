@@ -173,3 +173,37 @@ test("startup failure releases worker resources and leaves existing service avai
     await app.close();
   }
 });
+
+test("workstation pages and local Three.js module graph are served with correct types", async () => {
+  const app = await startServer();
+  try {
+    for (const path of [
+      "/measurement",
+      "/surface",
+      "/statistics",
+      "/scan",
+      "/events",
+    ]) {
+      const response = await fetch(app.url + path);
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get("content-type"), /text\/html/);
+    }
+    for (const path of [
+      "/surface.js",
+      "/vendor/three.module.js",
+      "/vendor/three.core.js",
+      "/vendor/OrbitControls.js",
+    ]) {
+      const response = await fetch(app.url + path);
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get("content-type"), /javascript/);
+      if (path.endsWith("OrbitControls.js")) {
+        const source = await response.text();
+        assert.ok(source.includes('from "/vendor/three.module.js"'));
+        assert.ok(!source.includes("from 'three'"));
+      }
+    }
+  } finally {
+    await app.close();
+  }
+});

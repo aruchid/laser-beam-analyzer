@@ -181,6 +181,16 @@ export async function startServer(port = 0) {
     ["/", "index.html"],
     ["/app.js", "app.js"],
     ["/style.css", "style.css"],
+    ...["/measurement", "/surface", "/statistics", "/scan", "/events"].map(
+      (path) => [path, "index.html"],
+    ),
+    ["/surface.js", "surface.js"],
+    ["/vendor/three.module.js", "../node_modules/three/build/three.module.js"],
+    ["/vendor/three.core.js", "../node_modules/three/build/three.core.js"],
+    [
+      "/vendor/OrbitControls.js",
+      "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+    ],
   ]);
   const server = http.createServer(async (req, res) => {
     try {
@@ -211,7 +221,14 @@ export async function startServer(port = 0) {
               ? "text/css; charset=utf-8"
               : "text/html; charset=utf-8",
         );
-        return res.end(await readFile(join(root, "web", name)));
+        const contents = await readFile(join(root, "web", name));
+        return res.end(
+          name.endsWith("OrbitControls.js")
+            ? contents
+                .toString()
+                .replace(/from 'three'/g, 'from "/vendor/three.module.js"')
+            : contents,
+        );
       }
       if (req.method === "GET" && url.pathname === "/api/health") {
         res.setHeader("Content-Type", "application/json");
