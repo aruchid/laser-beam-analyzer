@@ -1,37 +1,21 @@
-# 激光光束二阶矩分析原型
+# 激光光束质量分析系统
 
-这是从零实现的最小数值原型，默认运行确定性合成样例。
+合并原“激光光束质量分析仪”和“M² 激光光束质量分析”，统一维护一个 C++ 系统。
 
-## 安装与运行
+## 系统范围
 
-需要 Python 3.11+。
+图像采集、背景校正、光斑定位、二阶矩和 D4σ 参数、焦散拟合与 M² 计算、结果展示和导出。
 
-```sh
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python src/beam.py --background 3 --output artifacts
-```
+## 当前进度
 
-## 自有数据
+C++ 系统尚未实现。现有 Python 数值原型仅用于算法对照，不能作为 C++ 系统已完成的证据。
 
-二维灰度 NumPy `.npy` 文件，背景值由 --background 指定；输出质心、主轴 D4σ 直径和二阶矩协方差。测量单位为像素；需要校准后才能转为物理尺寸。
+- `reference/python/beam`：光束参数分析原型及验证图。
+- `reference/python/m2`：M² 拟合原型及验证图。
+- 原有根目录 `src/beam.py` 为历史兼容入口，后续随 C++ 迁移整理。
 
-```sh
-python src/beam.py --input your-data.npy --background 3 --output artifacts
-```
+## C++ 实施计划
 
-## 实际运行结果
+使用 CMake 构建；将采集接口、数值核心、标定、结果导出与展示分层。先在合成光斑和已知焦散数据上完成参数恢复测试，再接入真实相机与物理标定。具体相机 SDK、界面框架与误差验收阈值待确定。
 
-下面是当前代码生成的合成样例结果图，不是设备实测或 UI 截图。
-
-![运行结果](artifacts/result.png)
-
-## 文档
-
-- [PRD](docs/PRD.md)
-- [验证记录](docs/VALIDATION.md)
-
-## 限制
-
-尚未接入真实硬件或现场数据，未提供实时界面；生产性能和测量不确定度待验证。原有文档中的概念架构图与本原型运行结果分开保存。
+真实设备精度、稳定性及完整测量流程尚未验证。
