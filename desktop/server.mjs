@@ -185,6 +185,7 @@ export async function startServer(port = 0) {
       (path) => [path, "index.html"],
     ),
     ["/surface.js", "surface.js"],
+    ["/caustic.js", "caustic.js"],
     ["/vendor/three.module.js", "../node_modules/three/build/three.module.js"],
     ["/vendor/three.core.js", "../node_modules/three/build/three.core.js"],
     [

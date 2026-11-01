@@ -6,7 +6,10 @@ const binary =
 for (const [bin, args] of [
   [process.execPath, ["scripts/build.mjs"]],
   [binary, []],
-  [process.execPath, ["--test", "tests/transport.test.mjs"]],
+  [
+    process.execPath,
+    ["--test", "tests/transport.test.mjs", "tests/caustic.test.mjs"],
+  ],
 ]) {
   const r = spawnSync(bin, args, { stdio: "inherit" });
   if (r.error) throw r.error;

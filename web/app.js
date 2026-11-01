@@ -1,3 +1,12 @@
+import {
+  chartSVG,
+  axisDiagnostics,
+  parseCausticCSV,
+  predictedRadius,
+  resultsCSV,
+  reportDocument,
+  escapeHTML,
+} from "/caustic.js";
 let currentPage = "measurement",
   surface = null,
   surfaceLoading = null,
@@ -26,6 +35,17 @@ function route() {
   document.title = pageNames[currentPage] + " · BeamLab";
   if (currentPage === "surface") updateSurface();
   if (currentPage === "measurement") draw();
+  if (currentPage === "scan") renderScanView();
+  if (currentPage !== "scan") {
+    $("mode").textContent = "离线文件测量";
+    $("source-info").textContent = frame ? sourceName : "尚未载入图像";
+    if (frame) quality();
+    else {
+      $("validity").textContent = "NO DATA";
+      $("validity").className = "status neutral";
+    }
+  }
+  buttons();
 }
 async function updateSurface() {
   if (currentPage !== "surface" || !frame || !pixels) return;
@@ -121,8 +141,13 @@ function buttons() {
   $("record").disabled = !eligible();
   $("append-z").disabled = !eligible() || !frame.calibration?.confirmed;
   $("export").disabled = !frame || stale || busy;
-  $("report").disabled = !frame || stale || busy;
-  $("fit").disabled = scan.length < 5 || busy;
+  $("report").disabled =
+    currentPage === "scan" ? !fitResult || busy : !frame || stale || busy;
+  $("scan-import").disabled = busy;
+  $("fit").disabled =
+    scan.filter((s) => s.included !== false).length < 5 || busy;
+  for (const id of ["scan-csv", "scan-json", "scan-report", "scan-print"])
+    $(id).disabled = !fitResult || busy;
 }
 function changed() {
   epoch++;
@@ -583,23 +608,156 @@ $("clear-stats").addEventListener("click", () => {
   stats();
   log("统计记录已清除");
 });
-function scanRows() {
-  const table = $("scan-rows");
+function invalidateScan(message) {
+  fitGeneration++;
+  fitResult = null;
+  $("fit-result").textContent = message;
+  renderScanView();
+  buttons();
+}
+function renderScanView() {
+  if (currentPage === "scan") {
+    $("mode").textContent = "双轴焦散分析";
+    $("source-info").textContent = scan.length
+      ? scan[0].csv_filename || "逐帧登记样本"
+      : "等待轴向采样";
+    $("validity").textContent = fitResult
+      ? "FIT READY / 需质量复核"
+      : scan.length
+        ? "SAMPLES READY"
+        : "NO SAMPLES";
+    $("validity").className = "status " + (fitResult ? "warn" : "neutral");
+  }
+  $("caustic-chart").innerHTML = chartSVG(scan, fitResult);
+  $("residual-chart").innerHTML = chartSVG(scan, fitResult, true);
+  const enabled = scan.filter((s) => s.included !== false).length;
+  $("scan-count").textContent =
+    `${scan.length} 个位置 / ${enabled} 个采用 / ${scan.length - enabled} 个排除`;
+  $("scan-state").textContent = fitResult
+    ? "拟合完成"
+    : scan.length
+      ? "待拟合"
+      : "等待样本";
+  $("scan-state").className = "status " + (fitResult ? "good" : "neutral");
+  const table = $("scan-parameters");
   table.replaceChildren();
-  for (const sample of scan) {
+  if (!fitResult) {
+    table.innerHTML =
+      '<tr><td colspan="3" class="muted">拟合后显示双轴结果</td></tr>';
+    $("scan-diagnostics").textContent = "等待拟合；未输出测量符合性结论。";
+    return;
+  }
+  const x = axisDiagnostics(fitResult.x, scan, "wx_um"),
+    y = axisDiagnostics(fitResult.y, scan, "wy_um");
+  const fields = [
+    ["M²", fitResult.x.M2, fitResult.y.M2],
+    [
+      "w₀ / μm",
+      fitResult.x.waist_radius_m * 1e6,
+      fitResult.y.waist_radius_m * 1e6,
+    ],
+    ["z₀ / mm", x.z0_mm, y.z0_mm],
+    [
+      "θ 半角 / mrad",
+      fitResult.x.divergence_rad * 1e3,
+      fitResult.y.divergence_rad * 1e3,
+    ],
+    ["BPP / mm·mrad", x.bpp_mm_mrad, y.bpp_mm_mrad],
+    ["zR / mm", x.zR_mm, y.zR_mm],
+    ["RMSE / μm", x.rmse_um, y.rmse_um],
+    ["最大 |Δw| / μm", x.max_abs_um, y.max_abs_um],
+    ["R²（半径）", x.r2, y.r2],
+  ];
+  for (const [name, a, b] of fields) {
     const tr = document.createElement("tr");
-    for (const v of [
-      sample.z_mm,
-      sample.wx_um.toFixed(3),
-      sample.wy_um.toFixed(3),
-      sample.sequence,
+    for (const text of [
+      name,
+      ...[a, b].map((v) =>
+        Number.isFinite(v) ? v.toFixed(name.startsWith("R²") ? 8 : 4) : "—",
+      ),
     ]) {
       const td = document.createElement("td");
-      td.textContent = v;
+      td.textContent = text;
       tr.append(td);
     }
     table.append(tr);
   }
+  const warnings = [
+    ...x.warnings.map((v) => "X：" + v),
+    ...y.warnings.map((v) => "Y：" + v),
+  ];
+  if (scan.some((s) => s.source === "external_csv"))
+    warnings.push("外部 CSV：图像、曝光、暗场和空间标定未核验");
+  if (scan.some((s) => s.included === false && !s.note))
+    warnings.push("请补充被排除点的原因");
+  $("scan-diagnostics").innerHTML =
+    `<p>束腰左 / 右：X ${x.left}/${x.right} · Y ${y.left}/${y.right}</p><p>近场 / 远场：X ${x.near}/${x.far} · Y ${y.near}/${y.far}</p><p>采用 ${x.count} 点 · 单轴自由度 ${x.count - 3}</p><ul>${warnings.map((v) => "<li>" + escapeHTML(v) + "</li>").join("") || "<li>未触发当前工程提示；不等于标准认证。</li>"}</ul>`;
+  if (warnings.length) {
+    $("scan-state").className = "status warn";
+    $("scan-state").textContent = "拟合完成 / 需复核";
+  }
+}
+function scanRows() {
+  const table = $("scan-rows");
+  table.replaceChildren();
+  for (const sample of scan) {
+    const tr = document.createElement("tr"),
+      td = document.createElement("td"),
+      check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = sample.included !== false;
+    check.setAttribute("aria-label", `采用 z=${sample.z_mm} mm`);
+    check.addEventListener("change", () => {
+      sample.included = check.checked;
+      invalidateScan("采用点已改变，旧拟合及报告失效。");
+      scanRows();
+    });
+    td.append(check);
+    tr.append(td);
+    for (const value of [
+      sample.z_mm,
+      sample.wx_um.toFixed(3),
+      sample.wy_um.toFixed(3),
+      fitResult
+        ? (sample.wx_um - predictedRadius(fitResult.x, sample.z_mm)).toFixed(4)
+        : "—",
+      fitResult
+        ? (sample.wy_um - predictedRadius(fitResult.y, sample.z_mm)).toFixed(4)
+        : "—",
+      sample.sequence ? "帧 #" + sample.sequence : "外部 CSV",
+    ]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      tr.append(cell);
+    }
+    const noteCell = document.createElement("td"),
+      note = document.createElement("input");
+    note.type = "text";
+    note.maxLength = 240;
+    note.value = sample.note || "";
+    note.placeholder = "备注 / 排除原因";
+    note.setAttribute("aria-label", `z=${sample.z_mm} mm 备注`);
+    note.addEventListener("input", () => {
+      sample.note = note.value;
+      invalidateScan("采样备注已改变，请重新拟合以生成新报告。");
+    });
+    noteCell.append(note);
+    tr.append(noteCell);
+    const removeCell = document.createElement("td"),
+      remove = document.createElement("button");
+    remove.textContent = "删除";
+    remove.addEventListener("click", () => {
+      scan = scan.filter((s) => s !== sample);
+      invalidateScan("采样点已删除，需重新拟合。");
+      scanRows();
+    });
+    removeCell.append(remove);
+    tr.append(removeCell);
+    table.append(tr);
+  }
+  if (!scan.length)
+    table.innerHTML = '<tr><td colspan="9" class="muted">尚无采样点</td></tr>';
+  renderScanView();
   buttons();
 }
 $("append-z").addEventListener("click", () => {
@@ -608,6 +766,9 @@ $("append-z").addEventListener("click", () => {
       throw Error("当前帧无效或未标定");
     const z = number("z", -1e6, 1e6),
       sig = signature();
+    if (scan.length >= 512) throw Error("扫描最多 512 个位置");
+    if (scan.some((s) => s.source === "external_csv"))
+      throw Error("请先清除外部 CSV 扫描，再登记图像样本");
     if (scan.length && scan[0].signature !== sig)
       throw Error("扫描须保持同一 ROI、校正和空间标定");
     if (scan.some((row) => row.z_mm === z))
@@ -616,6 +777,9 @@ $("append-z").addEventListener("click", () => {
       throw Error("不能将同一源图像登记为不同 z 位置");
     fitGeneration++;
     scan.push({
+      included: true,
+      note: "",
+      source: "image",
       z_mm: z,
       wx_um: (frame.dx_px * frame.pitch_um) / 2,
       wy_um: (frame.dy_px * frame.pitch_um) / 2,
@@ -635,10 +799,38 @@ $("append-z").addEventListener("click", () => {
     error(e.message);
   }
 });
-$("wavelength").addEventListener("change", () => {
-  fitGeneration++;
-  fitResult = null;
-  $("fit-result").textContent = "波长已改变，需重新拟合。";
+$("wavelength").addEventListener("input", () => {
+  invalidateScan("波长已改变，请重新拟合。");
+  scanRows();
+});
+$("scan-import").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file || busy) return;
+  try {
+    if (file.size > 512 * 1024) throw Error("CSV 最大 512 KiB");
+    const bytes = await file.arrayBuffer(),
+      parsed = parseCausticCSV(
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      ),
+      digest = Array.from(
+        new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+        (b) => b.toString(16).padStart(2, "0"),
+      ).join("");
+    if (busy) throw Error("计算进行中，请稍后导入");
+    scan = parsed.map((s) => ({
+      ...s,
+      csv_sha256: digest,
+      csv_filename: file.name,
+      timestamp: new Date().toISOString(),
+    }));
+    invalidateScan(`已导入 ${file.name}；外部 CSV 的原始图像与标定未核验。`);
+    scanRows();
+    error("");
+    log(`导入双轴焦散 CSV：${file.name}，${scan.length} 点`);
+  } catch (e) {
+    error(e.message);
+  }
 });
 $("fit").addEventListener("click", async () => {
   busy = true;
@@ -646,7 +838,8 @@ $("fit").addEventListener("click", async () => {
   try {
     const generation = fitGeneration,
       wavelength = number("wavelength", 100, 20000),
-      samples = structuredClone(scan);
+      samples = structuredClone(scan.filter((s) => s.included !== false)),
+      all_samples = structuredClone(scan);
     if (samples.length < 5) throw Error("至少需要 5 个不同 z 位置");
     const fit = async (key) => {
       const response = await fetch("/api/fit", {
@@ -668,6 +861,9 @@ $("fit").addEventListener("click", async () => {
     fitResult = {
       x,
       y,
+      all_samples,
+      report_id: crypto.randomUUID(),
+      fit_time: new Date().toISOString(),
       wavelength_nm: wavelength,
       samples,
       standard_conformance: "not assessed",
@@ -675,10 +871,12 @@ $("fit").addEventListener("click", async () => {
     $("fit-result").textContent =
       `M²x ${x.M2.toFixed(4)} / M²y ${y.M2.toFixed(4)} · 束腰位置 X ${(x.waist_position_m * 1000).toFixed(3)} / Y ${(y.waist_position_m * 1000).toFixed(3)} mm · 半径 RMSE ${(x.radius_rmse_m * 1e6).toFixed(3)} / ${(y.radius_rmse_m * 1e6).toFixed(3)} μm` +
       (x.M2 < 1 || y.M2 < 1 ? " · M² < 1，请检查单位、校正与样本" : "");
+    scanRows();
     error("");
     log("固定 X/Y 轴焦散拟合完成，未判定标准符合性");
   } catch (e) {
     fitResult = null;
+    scanRows();
     error(e.message);
   } finally {
     busy = false;
@@ -742,9 +940,71 @@ $("export").addEventListener("click", async () => {
     error(e.message);
   }
 });
-$("report").addEventListener("click", () => {
-  if (frame && !stale) window.print();
+function scanReport() {
+  if (!fitResult) throw Error("请先完成双轴拟合");
+  return reportDocument(
+    fitResult,
+    {
+      "样品 / 测量名称": $("scan-sample").value,
+      操作员: $("scan-operator").value,
+      "仪器 / 设备标识": $("scan-device").value,
+      "标定记录 ID": $("scan-calibration").value,
+      "环境 / 测量备注": $("scan-comment").value,
+    },
+    Array.from($("events").children, (e) => e.textContent).reverse(),
+  );
+}
+$("scan-csv").addEventListener("click", () => {
+  if (fitResult)
+    download(
+      "beam-caustic-residuals.csv",
+      "\uFEFF" + resultsCSV(fitResult.all_samples, fitResult),
+      "text/csv;charset=utf-8",
+    );
 });
+$("scan-json").addEventListener("click", () => {
+  if (fitResult)
+    download(
+      "beam-caustic-analysis.json",
+      JSON.stringify(
+        {
+          schema: "beamlab.caustic/1",
+          ...fitResult,
+          units: { z: "mm", radius: "um", residual: "um" },
+          diagnostics: {
+            x: axisDiagnostics(fitResult.x, fitResult.all_samples, "wx_um"),
+            y: axisDiagnostics(fitResult.y, fitResult.all_samples, "wy_um"),
+          },
+        },
+        null,
+        2,
+      ),
+      "application/json",
+    );
+});
+$("scan-report").addEventListener("click", () => {
+  if (fitResult)
+    download(
+      "beam-m2-report.html",
+      scanReport().html,
+      "text/html;charset=utf-8",
+    );
+});
+function printScan() {
+  if (!fitResult) return;
+  $("scan-print-document").innerHTML = scanReport().content;
+  document.body.dataset.print = "scan";
+  window.print();
+}
+window.addEventListener("afterprint", () => {
+  delete document.body.dataset.print;
+});
+$("scan-print").addEventListener("click", printScan);
+$("report").addEventListener("click", () => {
+  if (currentPage === "scan") printScan();
+  else if (frame && !stale) window.print();
+});
+scanRows();
 renderResults();
 stats();
 log("工作站启动。设备未连接；等待用户载入原始图像。");

@@ -763,3 +763,201 @@ body:not([data-page="measurement"]) .workspace {
     display: none;
   }
 }
+
+.scan-metadata {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid #ccd7e0;
+  border-bottom: 1px solid #ccd7e0;
+  background: #f7f9fb;
+}
+.scan-metadata label {
+  font-size: 10px;
+  color: #60778b;
+}
+.scan-metadata input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 6px;
+  border: 1px solid #bccbd7;
+}
+.scan-comment {
+  grid-column: 1/-1;
+}
+.scan-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 14px;
+  padding: 12px;
+}
+.chart-card {
+  border: 1px solid #ccd8e3;
+  background: white;
+  margin-bottom: 10px;
+}
+.chart-card h3 {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 12px;
+  margin: 0;
+  background: #edf3f7;
+  font-size: 11px;
+}
+.chart-card h3 span {
+  font-weight: 400;
+  font-size: 10px;
+  color: #72879a;
+}
+.chart-card svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font:
+    11px "Segoe UI",
+    sans-serif;
+  fill: #61778b;
+}
+.scan-fit-summary {
+  border: 1px solid #c5d2de;
+  padding: 10px;
+  background: #f8fafc;
+}
+.scan-fit-summary h3 {
+  font-size: 12px;
+  padding: 8px 0;
+}
+.scan-fit-summary table {
+  font-size: 10px !important;
+}
+.scan-fit-summary td {
+  padding: 7px;
+}
+.scan-fit-summary ul {
+  padding-left: 17px;
+  line-height: 1.7;
+  color: #96601c;
+  font-size: 10px;
+}
+#scan-diagnostics p {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.scan-table-scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+.scan-table-scroll th {
+  position: sticky;
+  top: 0;
+}
+.scan-table-scroll td input[type="text"] {
+  width: 180px;
+  border: 1px solid #c5d2df;
+  padding: 5px;
+}
+.scan-table-scroll td button {
+  padding: 4px 7px;
+}
+.scan-import {
+  width: auto !important;
+  font-size: 11px !important;
+}
+.scan-controls {
+  gap: 8px;
+}
+.scan-controls .scan-import {
+  color: #244b6d;
+}
+.scan-controls label.button {
+  padding: 6px 8px;
+  margin: 0;
+}
+#scan-print-document {
+  display: none;
+}
+#scan-state {
+  margin-left: auto;
+}
+@media (max-width: 1100px) {
+  .scan-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+  .scan-metadata {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .scan-fit-summary {
+    min-width: 0;
+  }
+}
+@media print {
+  body[data-print="scan"] > *:not(#scan-print-document) {
+    display: none !important;
+  }
+  body[data-print="scan"] #scan-print-document {
+    display: block !important;
+    background: white;
+    color: #203448;
+    font:
+      11px Arial,
+      sans-serif;
+  }
+  #scan-print-document h1 {
+    font-size: 24px;
+  }
+  #scan-print-document h2 {
+    font-size: 16px;
+    border-bottom: 1px solid #b6c6d4;
+    padding: 8px 0;
+    margin: 24px 0 10px;
+  }
+  #scan-print-document h3 {
+    font-size: 12px;
+  }
+  #scan-print-document p,
+  #scan-print-document li {
+    line-height: 1.7;
+  }
+  #scan-print-document dl {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    font-size: 11px;
+    gap: 5px;
+  }
+  #scan-print-document svg {
+    width: 100%;
+    height: auto;
+    break-inside: avoid;
+    font:
+      11px Arial,
+      sans-serif;
+    fill: #506b80;
+  }
+  #scan-print-document table {
+    font-size: 10px;
+  }
+  #scan-print-document thead {
+    display: table-header-group;
+  }
+  #scan-print-document tr {
+    break-inside: avoid;
+  }
+  #scan-print-document .provenance {
+    font: 8px monospace;
+    overflow-wrap: anywhere;
+  }
+  #scan-print-document footer {
+    display: block;
+    font-size: 10px;
+  }
+  #scan-print-document .notice {
+    border: 1px solid #d5bb8a;
+    padding: 10px;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}

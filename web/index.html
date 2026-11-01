@@ -319,43 +319,126 @@
       </section>
       <section class="panel" id="scan">
         <div class="panel-title">
-          <h2>M² · 手动轴向扫描</h2>
-          <span>固定传感器 X / Y 轴</span>
+          <h2>M² · 双轴焦散测量与分析</h2>
+          <span>固定传感器 X / Y 轴 · 半径定义 w = D4σ / 2</span
+          ><span id="scan-state" class="status neutral">等待样本</span>
         </div>
         <div class="scan-controls">
-          <label>z / mm<input id="z" type="number" value="0" step="1" /></label
-          ><label
+          <label>z / mm<input id="z" type="number" value="0" step="1" /></label>
+          <label
             >波长 / nm<input
               id="wavelength"
               type="number"
               value="1064"
               min="100"
-              max="20000" /></label
-          ><button id="append-z" disabled>追加当前帧</button
-          ><button id="fit" disabled>拟合 X / Y</button
-          ><button id="clear-scan">清除</button>
+              max="20000"
+          /></label>
+          <button id="append-z" disabled>追加当前帧</button>
+          <label class="button scan-import"
+            >导入双轴 CSV<input
+              id="scan-import"
+              type="file"
+              accept=".csv,text/csv"
+              hidden
+          /></label>
+          <button id="fit" disabled>拟合 X / Y</button
+          ><button id="clear-scan">清除扫描</button>
+          <button id="scan-csv" disabled>导出残差 CSV</button
+          ><button id="scan-json" disabled>导出分析 JSON</button>
+          <button id="scan-report" disabled>下载完整报告</button
+          ><button id="scan-print" disabled>打印报告 / PDF</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>z / mm</th>
-              <th>wₓ / μm</th>
-              <th>wᵧ / μm</th>
-              <th>帧号</th>
-            </tr>
-          </thead>
-          <tbody id="scan-rows">
-            <tr>
-              <td colspan="4" class="muted">尚无采样点</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="scan-metadata">
+          <label
+            >样品 / 测量名称<input
+              id="scan-sample"
+              maxlength="120"
+              placeholder="未填写" /></label
+          ><label
+            >操作员<input
+              id="scan-operator"
+              maxlength="80"
+              placeholder="未填写" /></label
+          ><label
+            >仪器 / 设备标识<input
+              id="scan-device"
+              maxlength="120"
+              placeholder="未接入设备" /></label
+          ><label
+            >标定记录 ID<input
+              id="scan-calibration"
+              maxlength="120"
+              placeholder="未提供" /></label
+          ><label class="scan-comment"
+            >环境 / 测量备注<input
+              id="scan-comment"
+              maxlength="500"
+              placeholder="曝光、增益、衰减、环境或外部采样来源"
+          /></label>
+        </div>
+        <div class="scan-analysis-grid">
+          <section class="scan-plots">
+            <div class="chart-card">
+              <h3>
+                双轴焦散曲线 <span>X：蓝色　Y：橙色　×：排除　虚线：外推</span>
+              </h3>
+              <div id="caustic-chart"></div>
+            </div>
+            <div class="chart-card">
+              <h3>拟合残差 <span>实测半径 − 拟合半径 / μm</span></h3>
+              <div id="residual-chart"></div>
+            </div>
+          </section>
+          <aside class="scan-fit-summary">
+            <h3>拟合参数</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>X</th>
+                  <th>Y</th>
+                </tr>
+              </thead>
+              <tbody id="scan-parameters"></tbody>
+            </table>
+            <h3>采样覆盖 / 质量复核</h3>
+            <div id="scan-diagnostics">等待拟合</div>
+            <p class="hint">
+              覆盖计数用于工程复核，不自动判定 ISO 11146
+              符合性。尚未评估测量不确定度和完整广义像散。
+            </p>
+          </aside>
+        </div>
+        <div class="panel-title">
+          <h2>采样记录</h2>
+          <span id="scan-count">0 个位置</span>
+        </div>
+        <div class="scan-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>采用</th>
+                <th>z / mm</th>
+                <th>wₓ / μm</th>
+                <th>wᵧ / μm</th>
+                <th>ΔX / μm</th>
+                <th>ΔY / μm</th>
+                <th>来源 / 帧号</th>
+                <th>备注 / 排除原因</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="scan-rows"></tbody>
+          </table>
+        </div>
         <p class="panel-foot" id="fit-result">
-          需确认标定，并在不同 z 位置载入图像。半径 w = D4σ / 2。
+          载入不同 z 位置的有效图像并登记，或导入表头为 z_mm,wx_um,wy_um 的
+          CSV。外部 CSV 的标定和原始图像未由软件核验。
         </p>
         <p class="hint scan-note">
-          当前无位移台驱动；至少 5 点是数值拟合门槛，不是 ISO 11146
-          测量条件。广义像散、转轴与测量不确定度另行处理。
+          无权重最小二乘拟合
+          w²(z)。修改波长、采用状态或采样值会使旧拟合及报告失效。5
+          个位置仅为数值下限；相机、位移台、标准采样方案和不确定度仍须单独验收。
         </p>
       </section>
     </section>
@@ -366,6 +449,7 @@
       </div>
       <ol id="events"></ol>
     </section>
+    <article id="scan-print-document"></article>
     <footer>
       <span>本地文件 → C++ 计算 → 共享帧快照 → HTML 工作站</span
       ><span id="footer-state">相机与位移台：未连接 · 校准状态：未确认</span>

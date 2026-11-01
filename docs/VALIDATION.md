@@ -62,3 +62,13 @@ git diff --check
 - 无连续 RAF 循环，未测量真实采集帧率或完整端到端性能。
 
 ![Three.js 实际曲面，合成 QA 文件](images/three-surface-qa.jpg)
+
+## M² 扫描增量验收
+
+- `npm test`：C++ 数值测试及 8 项 Node 测试通过，新增 CSV 单位/重复位置/引号/排除校验、报告 HTML 转义、解析残差及双轴 native 拟合恢复测试。
+- 合成 CSV 共 25 个不同位置，独立双轴模型 M²x=1.4 / M²y=1.8；浏览器实际导入、C++ 拟合、焦散图与残差图显示通过，控制台无错误。
+- 排除一个测点后共 24 个采用，旧报告立即禁用，重新拟合后导出 HTML 和 CSV 均保留全部 25 点与排除标识。
+- 下载文件包含 2 张内联 SVG、7 个报告章节、元数据及来源 SHA-256。打印样式含 A4 页面、完整测点表、重复表头；尚未实际核验系统打印对话框生成的 PDF 分页。
+- QA 样本为 `tests/fixtures/synthetic-caustic-dual-axis.csv`，备注明确标注非设备实测；程序默认不载入此样本。
+
+![M² 双轴扫描验收，合成 QA 数据](images/m2-scan-qa.jpg)
