@@ -940,19 +940,19 @@ $("export").addEventListener("click", async () => {
     error(e.message);
   }
 });
-function scanReport() {
-  if (!fitResult) throw Error("请先完成双轴拟合");
-  return reportDocument(
-    fitResult,
-    {
+function scanMetadata() {
+  return {
       "样品 / 测量名称": $("scan-sample").value,
       操作员: $("scan-operator").value,
       "仪器 / 设备标识": $("scan-device").value,
       "标定记录 ID": $("scan-calibration").value,
       "环境 / 测量备注": $("scan-comment").value,
-    },
-    Array.from($("events").children, (e) => e.textContent).reverse(),
-  );
+    };
+}
+function scanReport() {
+  if (!fitResult) throw Error("请先完成双轴拟合");
+  return reportDocument(fitResult, scanMetadata(),
+    Array.from($("events").children, (e) => e.textContent).reverse());
 }
 $("scan-csv").addEventListener("click", () => {
   if (fitResult)
@@ -969,6 +969,8 @@ $("scan-json").addEventListener("click", () => {
       JSON.stringify(
         {
           schema: "beamlab.caustic/1",
+          metadata: scanMetadata(),
+          events: Array.from($("events").children, (e) => e.textContent).reverse(),
           ...fitResult,
           units: { z: "mm", radius: "um", residual: "um" },
           diagnostics: {
